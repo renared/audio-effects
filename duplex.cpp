@@ -95,12 +95,12 @@ void convolve_fft(double *output, MY_TYPE* block, double* filter, double* buf1, 
 
   memcpy(buf1, block, blockSize*sizeof(double));
   // calcul de sa fft
-  if (fft(buf1, buf2, n) != 0) { std::cout << "erreur fft" << std::endl; exit(1); }
+  if (fftr(buf1, buf2, n) != 0) { std::cout << "erreur fft" << std::endl; exit(1); }
   
 
   memcpy(buf3, filter, filterSize);
   // calcul de sa fft
-  if (fft(buf3, buf4, n) != 0) { std::cout << "erreur fft" << std::endl; exit(1); }
+  if (fftr(buf3, buf4, n) != 0) { std::cout << "erreur fft" << std::endl; exit(1); }
 
   // produit dans buf1 (partie réelle) et buf2 (partie imaginaire)
   for (unsigned int i = 0 ; i < n; i++) {
@@ -109,7 +109,7 @@ void convolve_fft(double *output, MY_TYPE* block, double* filter, double* buf1, 
   }
 
   //ifft
-  if (ifft(buf5, buf6, n) != 0) { std::cout << "erreur ifft" << std::endl; exit(1); }
+  if (ifftr(buf5, buf6, n) != 0) { std::cout << "erreur ifft" << std::endl; exit(1); }
   memcpy(output, buf5, n*sizeof(double));
   
 }
@@ -199,7 +199,7 @@ int main( int argc, char *argv[] )
   adac.showWarnings( true );
 
   // Set the same number of channels for both input and output.
-  unsigned int bufferFrames = 2048*3;
+  unsigned int bufferFrames = 1024*3;
   RtAudio::StreamParameters iParams, oParams;
   iParams.deviceId = iDevice;
   iParams.nChannels = channels;
