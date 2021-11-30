@@ -12,6 +12,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 
 /*
 typedef char MY_TYPE;
@@ -64,10 +65,10 @@ void convolve(MY_TYPE *output, MY_TYPE* block, double* filter, unsigned int bloc
   // output de taille blockSize + filterSize - 1
   for (unsigned int i = 0 ; i < blockSize + filterSize - 1 ; i++) {
     output[i] = 0;
-    for (unsigned int j = 0 ; j < filterSize && i-j >= 0 ; j++) {
-      if (i-j >= blockSize)
-        continue;
-      else
+    unsigned int const jmn = (i >= blockSize - 1)? i - (blockSize - 1) : 0;
+    unsigned int const jmx = (i <  filterSize - 1)? i            : filterSize - 1;
+    for (unsigned int j = jmn ; j <= jmx ; ++j) {
+      if (i-j < blockSize)
         output[i] += (MY_TYPE)(block[i-j] * filter[j]);
     }
   }
@@ -83,8 +84,10 @@ int inout( void *outputBuffer, void *inputBuffer, unsigned int /*nBufferFrames*/
   MY_TYPE* workBuffer = ((CallbackData*)data)->buffer; // workBuffer contient les résidus des convolutions précédentes, à compter du même début que inputBuffer
   convolve(((CallbackData*)data)->convResult, (MY_TYPE*)inputBuffer, ((CallbackData*)data)->filter, ((CallbackData*)data)->bufferFrames, ((CallbackData*)data)->filterSize);
   // on a les résidus précédents et la convolution du bloc actuel, plus qu'à sommer dans le workBuffer :
+  //std::cout << "\n%%%%%%\n";
   for (unsigned int i = 0 ; i < ((CallbackData*)data)->bufferFrames + ((CallbackData*)data)->filterSize - 1; i++) {
     *(workBuffer+i) = workBuffer[i] + ((CallbackData*)data)->convResult[i];
+    //if (i<64) std::cout << workBuffer[i] << " ";
   }
   memcpy(outputBuffer, workBuffer, ((CallbackData*)data)->bufferBytes);
   
@@ -130,7 +133,7 @@ int main( int argc, char *argv[] )
   adac.showWarnings( true );
 
   // Set the same number of channels for both input and output.
-  unsigned int bufferFrames = 512;
+  unsigned int bufferFrames = 1024;
   RtAudio::StreamParameters iParams, oParams;
   iParams.deviceId = iDevice;
   iParams.nChannels = channels;
@@ -179,17 +182,52 @@ int main( int argc, char *argv[] )
 
   data.filter = (double*) buffer;
   data.filterSize = lSize * sizeof(char) / sizeof(double);
+  std::cout << data.filterSize << std::endl;
+  for (int i = 0 ; i < 64 ; i++) std::cout << data.filter[i] << " ";
   */
 
+ std::ifstream is ("impres", std::ifstream::binary);
+  if (is) {
+    // get length of file:
+    is.seekg (0, is.end);
+    int length = is.tellg();
+    is.seekg (0, is.beg);
+
+    char * buffer = new char [length];
+
+    std::cout << "Reading " << length << " characters or " << length*sizeof(char)/sizeof(double) << " doubles... ";
+    // read data as a block:
+    is.read (buffer,length);
+
+    if (is)
+      std::cout << "all characters read successfully.";
+    else
+      std::cout << "error: only " << is.gcount() << " could be read";
+    is.close();
+
+    // ...buffer contains the entire file...
+
+    data.filter = (double*)buffer;
+    data.filterSize = length * sizeof(char) / sizeof(double);
+    data.filterSize = 1000;
+  }
+  else {
+    std::cout << "Impossible d'ouvrir le fichier impres." << std::endl;
+    exit(1);
+  }
+
+
+  /*
   data.filter = (double*) calloc(1000, sizeof(double));
   for (int i = 0 ; i < 1000 ; i++) {
       data.filter[i] = 1.0/1000.0;
     }
   data.filterSize = 1000;
+  */
   
-  // std::cout << data.filterSize << std::endl;
-  // for (int i = 0 ; i < data.filterSize ; i++)
-  //   printf ("%lf ", data.filter[i]);
+  std::cout << data.filterSize << std::endl;
+  for (int i = 0 ; i < 128 ; i++)
+    printf ("%lf ", data.filter[i]);
 
   data.buffer = (MY_TYPE*) calloc(bufferFrames+data.filterSize-1, sizeof(MY_TYPE));
 
