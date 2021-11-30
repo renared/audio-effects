@@ -13,6 +13,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include "somefunc.h"
+
+#define USE_FFT 1
 
 /*
 typedef char MY_TYPE;
@@ -39,12 +42,19 @@ typedef double MY_TYPE;
 #define FORMAT RTAUDIO_FLOAT64
 
 typedef struct {
+    unsigned int fs;
     unsigned int bufferFrames;
     unsigned int bufferBytes;
     double* filter;
     unsigned int filterSize;
     MY_TYPE* convResult;
     MY_TYPE* buffer;
+    double* _fftbuf1;
+    double* _fftbuf2;
+    double* _fftbuf3;
+    double* _fftbuf4;
+    double* _fftbuf5;
+    double* _fftbuf6;
   } CallbackData;
 
 void usage( void ) {
@@ -74,15 +84,65 @@ void convolve(MY_TYPE *output, MY_TYPE* block, double* filter, unsigned int bloc
   }
 }
 
+void convolve_fft(double *output, MY_TYPE* block, double* filter, double* buf1, double* buf2, double* buf3, double* buf4, double* buf5, double* buf6, unsigned int blockSize, unsigned int filterSize) {
+  unsigned int n = get_nextpow2(blockSize + filterSize - 1);
+
+  memset(buf1, 0, n*sizeof(double));
+  memset(buf2, 0, n*sizeof(double));
+  memset(buf3, 0, n*sizeof(double));
+  memset(buf4, 0, n*sizeof(double));
+  memset(output, 0, n*sizeof(double));
+
+  memcpy(buf1, block, blockSize*sizeof(double));
+  // calcul de sa fft
+  if (fft(buf1, buf2, n) != 0) { std::cout << "erreur fft" << std::endl; exit(1); }
+  
+
+  memcpy(buf3, filter, filterSize);
+  // calcul de sa fft
+  if (fft(buf3, buf4, n) != 0) { std::cout << "erreur fft" << std::endl; exit(1); }
+
+  // produit dans buf1 (partie réelle) et buf2 (partie imaginaire)
+  for (unsigned int i = 0 ; i < n; i++) {
+    buf5[i] = buf1[i]*buf3[i] - buf2[i]*buf4[i];
+    buf6[i] = buf1[i]*buf4[i] + buf2[i]*buf3[i];
+  }
+
+  //ifft
+  if (ifft(buf5, buf6, n) != 0) { std::cout << "erreur ifft" << std::endl; exit(1); }
+  memcpy(output, buf5, n*sizeof(double));
+  
+}
+
 int inout( void *outputBuffer, void *inputBuffer, unsigned int /*nBufferFrames*/,
            double /*streamTime*/, RtAudioStreamStatus status, void *data )
 {
-  // Since the number of input and output channels is equal, we can do
-  // a simple buffer copy operation here.
+
   if ( status ) std::cout << "Stream over/underflow detected." << std::endl;
+  double tic = get_process_time();
+  double toc;
 
   MY_TYPE* workBuffer = ((CallbackData*)data)->buffer; // workBuffer contient les résidus des convolutions précédentes, à compter du même début que inputBuffer
-  convolve(((CallbackData*)data)->convResult, (MY_TYPE*)inputBuffer, ((CallbackData*)data)->filter, ((CallbackData*)data)->bufferFrames, ((CallbackData*)data)->filterSize);
+  if (USE_FFT) {
+    convolve_fft(((CallbackData*)data)->convResult,
+                  (MY_TYPE*)inputBuffer, ((CallbackData*)data)->filter, 
+                  ((CallbackData*)data)->_fftbuf1, 
+                  ((CallbackData*)data)->_fftbuf2, 
+                  ((CallbackData*)data)->_fftbuf3, 
+                  ((CallbackData*)data)->_fftbuf4,
+                  ((CallbackData*)data)->_fftbuf5, 
+                  ((CallbackData*)data)->_fftbuf6,
+                  ((CallbackData*)data)->bufferFrames, 
+                  ((CallbackData*)data)->filterSize
+                  );
+  }
+  else
+    convolve(((CallbackData*)data)->convResult, 
+              (MY_TYPE*)inputBuffer, 
+              ((CallbackData*)data)->filter, 
+              ((CallbackData*)data)->bufferFrames, 
+              ((CallbackData*)data)->filterSize
+              );
   // on a les résidus précédents et la convolution du bloc actuel, plus qu'à sommer dans le workBuffer :
   //std::cout << "\n%%%%%%\n";
   for (unsigned int i = 0 ; i < ((CallbackData*)data)->bufferFrames + ((CallbackData*)data)->filterSize - 1; i++) {
@@ -98,6 +158,12 @@ int inout( void *outputBuffer, void *inputBuffer, unsigned int /*nBufferFrames*/
   }
   memset(workBuffer + ((CallbackData*)data)->filterSize - 1, 0, ((CallbackData*)data)->bufferBytes);
   
+  toc = get_process_time();
+  std::cout << "Time elapsed: " << toc-tic << "\tBlock duration: " << (double)((CallbackData*)data)->bufferFrames / ((CallbackData*)data)->fs << std::endl;
+  if (toc - tic > (double)((CallbackData*)data)->bufferFrames / ((CallbackData*)data)->fs) {
+    std::cout << "Callback underrun detected!" << std::endl;
+  }
+
   return 0;
 }
 
@@ -133,7 +199,7 @@ int main( int argc, char *argv[] )
   adac.showWarnings( true );
 
   // Set the same number of channels for both input and output.
-  unsigned int bufferFrames = 1024;
+  unsigned int bufferFrames = 2048*3;
   RtAudio::StreamParameters iParams, oParams;
   iParams.deviceId = iDevice;
   iParams.nChannels = channels;
@@ -165,6 +231,8 @@ int main( int argc, char *argv[] )
 
 
   // ALLOCATIONS ET INITIALISATION
+  // -----------------------------
+  data.fs = fs;
   data.bufferFrames = bufferFrames;
   data.bufferBytes = bufferFrames * channels * sizeof( MY_TYPE );
 
@@ -209,7 +277,14 @@ int main( int argc, char *argv[] )
 
     data.filter = (double*)buffer;
     data.filterSize = length * sizeof(char) / sizeof(double);
-    data.filterSize = 1000;
+    
+    // unsigned int m = get_nextpow2(data.filterSize);
+    // if (data.filterSize != m) {
+    //   double* zp_filter = dgetmem(m);
+    //   memcpy(zp_filter, data.filter, data.filterSize);
+    //   data.filterSize = m;
+    // }
+
   }
   else {
     std::cout << "Impossible d'ouvrir le fichier impres." << std::endl;
@@ -229,13 +304,20 @@ int main( int argc, char *argv[] )
   for (int i = 0 ; i < 128 ; i++)
     printf ("%lf ", data.filter[i]);
 
-  data.buffer = (MY_TYPE*) calloc(bufferFrames+data.filterSize-1, sizeof(MY_TYPE));
+  unsigned int n = get_nextpow2(bufferFrames+data.filterSize-1);
+  std::cout << std::endl << n << std::endl;
 
-  data.convResult = (MY_TYPE*) calloc(bufferFrames+data.filterSize-1, sizeof(MY_TYPE));
+  data.buffer = (MY_TYPE*) calloc(n, sizeof(MY_TYPE));
 
-  // test de la convolution : filter sert de réponse impulsionnelle
-  //*(MY_TYPE*)(data.filter+0) = 1;
-  //*(MY_TYPE*)(data.filter+1000) = 1;
+  data.convResult = (MY_TYPE*) calloc(n, sizeof(MY_TYPE));
+
+  
+  data._fftbuf1 = (MY_TYPE*) calloc(n, sizeof(MY_TYPE));
+  data._fftbuf2 = (MY_TYPE*) calloc(n, sizeof(MY_TYPE));
+  data._fftbuf3 = (MY_TYPE*) calloc(n, sizeof(MY_TYPE));
+  data._fftbuf4 = (MY_TYPE*) calloc(n, sizeof(MY_TYPE));
+  data._fftbuf5 = (MY_TYPE*) calloc(n, sizeof(MY_TYPE));
+  data._fftbuf6 = (MY_TYPE*) calloc(n, sizeof(MY_TYPE));
 
   
 
@@ -264,6 +346,12 @@ int main( int argc, char *argv[] )
   free(data.filter);
   free(data.buffer);
   free(data.convResult);
+  free(data._fftbuf1);
+  free(data._fftbuf2);
+  free(data._fftbuf3);
+  free(data._fftbuf4);
+  free(data._fftbuf5);
+  free(data._fftbuf6);
 
   return 0;
 }
