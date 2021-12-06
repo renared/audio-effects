@@ -98,8 +98,8 @@ int inout( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
   
 
   for (int i = 0; i < nBufferFrames ; i++) {
-    //fn = 500.0/22050.0 + 300.0/22050.0*sin(2*PI*(i+__i)/44100.0 * 0.3 / (amplitude+0.01) );
-    fn = 150.0/22050.0 + amplitude/0.1*8000/22050.0;
+    fn = 500.0/22050.0 + 300.0/22050.0*sin(2*PI*(i+__i)/44100.0); //* 0.3 / (amplitude+0.01) );
+    //fn = 150.0/22050.0 + amplitude/0.1*8000/22050.0;
     if (i==0) std::cout << amplitude << "\t" << fn*22050.0 << std::endl;
     s = 0.01;
     wn = 2*PI*fn;

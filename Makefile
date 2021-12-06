@@ -6,7 +6,10 @@ LDOBJ = $(RTAUDIO_DIR)/librtaudio_la-RtAudio.o
 
 all: duplex
 
-duplex: duplex.o somefunc.o
+duplex: duplex.o somefunc.o processing.o
+	$(CC) $(LIBS) -o $@ $^ $(LDOBJ)
+
+wah: wah.o somefunc.o
 	$(CC) $(LIBS) -o $@ $^ $(LDOBJ)
 
 %.o: %.cpp
