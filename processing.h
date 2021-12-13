@@ -15,7 +15,7 @@ class ConvolveBuf {
   public:
   ConvolveBuf(unsigned int _x_len, unsigned int _h_len);
   ConvolveBuf(unsigned int _x_len, unsigned int _h_len, double* x, double* h);
-  ~ConvolveBuf();
+  //~ConvolveBuf();
   ComplexSignal *fft1, *fft2, *fft3;
   unsigned int x_len, h_len;
   double *x, *h;
@@ -34,7 +34,7 @@ class Effect {
 
 class ConvolveEffect : public Effect {
   public:
-  ConvolveEffect(unsigned int bufferSize, double* inputBuffer, unsigned int filterSize, double* filter, bool useFFT = false);
+  ConvolveEffect(unsigned int bufferSize, double* inputBuffer, unsigned int filterSize, double* filter, bool useFFT = true);
   double* overlapBuffer;
   ConvolveBuf* convbuf;
   bool useFFT;

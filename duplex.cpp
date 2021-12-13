@@ -15,6 +15,7 @@
 #include <fstream>
 #include "somefunc.h"
 #include "processing.h"
+#include <vector>
 
 #define USE_FFT 1
 
@@ -49,6 +50,7 @@ class CallbackData {
   MY_TYPE* buffer;
   ConvolveBuf* convbuf;
   MY_TYPE* bigbuf;
+  std::vector<Effect*> *fx_chain;
 };
 
 void usage( void ) {
@@ -77,31 +79,9 @@ int inout( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
 
   size_t bytes = nBufferFrames * sizeof(double);
 
-  MY_TYPE* overlapBuffer = ((CallbackData*)data)->buffer; // overlapBuffer contient les résidus des convolutions précédentes, à compter du même début que inputBuffer
-  
-  /* Calcul convolution */
-  
-  memcpy(data_p->convbuf->x, inputBuffer, nBufferFrames*sizeof(double));
-
-  if (USE_FFT) {
-    convolve_fft(data_p->convbuf);
-  }
-  else {
-    convolve(data_p->convbuf);
-  }
-
-  // on a les résidus précédents et la convolution du bloc actuel, plus qu'à sommer dans le overlapBuffer :
-  for (unsigned int i = 0 ; i < nBufferFrames + data_p->convbuf->h_len - 1; i++) {
-    *(overlapBuffer+i) = overlapBuffer[i] + data_p->convbuf->output[i];
-  }
-  memcpy(outputBuffer, overlapBuffer, bytes);
-  
-  // maintenant on shift le overlapBuffer en avance pour le prochain bloc
-  // memmove(overlapBuffer, overlapBuffer + (nBufferFrames, data_p->convbuf->hSize -1); // mauvaise idée car alloue un tableau temporaire pour move de façon safe
-  for (unsigned int i = 0 ; i < data_p->convbuf->h_len -1 ; i++) {
-    overlapBuffer[i] = overlapBuffer[nBufferFrames + i];
-  }
-  memset(overlapBuffer + data_p->convbuf->h_len - 1, 0, bytes);
+  data_p->fx_chain->front()->in = (double*)inputBuffer;
+  data_p->fx_chain->front()->processBuffer();
+  memcpy(outputBuffer, data_p->fx_chain->front()->out, bytes);
   
   toc = get_process_time();
   std::cout << "Time elapsed: " << toc-tic << "\tBlock duration: " << (double)nBufferFrames / data_p->fs << std::endl;
@@ -229,6 +209,12 @@ int main( int argc, char *argv[] )
     std::cout << "Erreur d'allocation" << std::endl;
     exit(1);
   }
+
+  std::vector<Effect*> fxChain;
+  data.fx_chain = &fxChain;
+  ConvolveEffect reverb = ConvolveEffect(bufferFrames, NULL, filterSize, filter);
+  fxChain.push_back(&reverb);
+
 
   try {
     adac.startStream();

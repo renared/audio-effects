@@ -32,23 +32,25 @@ ConvolveBuf::ConvolveBuf(unsigned int _x_len, unsigned int _h_len, double* x, do
   h = h;
 }
 
-ConvolveBuf::ConvolveBuf(unsigned int _x_len, unsigned int _h_len) {
-  ConvolveBuf(_x_len, _h_len);
+ConvolveBuf::ConvolveBuf(unsigned int _x_len, unsigned int _h_len) 
+: ConvolveBuf(_x_len, _h_len, NULL, NULL) {
   x = new double[x_len];
   h = new double[h_len];
+  memset(x, 0, x_len*sizeof(double));
+  memset(h, 0, h_len*sizeof(double));
 }
 
 
 
-ConvolveBuf::~ConvolveBuf()
-{
-    delete fft1;
-    delete fft2;
-    delete fft3;
-    delete x;
-    delete h;
-    delete output;
-}
+// ConvolveBuf::~ConvolveBuf()
+// {
+//     delete fft1;
+//     delete fft2;
+//     delete fft3;
+//     delete x;
+//     delete h;
+//     delete output;
+// }
 
 Effect::Effect(unsigned int bufferSize, double* inputBuffer) {
   bufferSize = bufferSize;
@@ -63,7 +65,7 @@ void Effect::processBuffer() {
 ConvolveEffect::ConvolveEffect(unsigned int bufferSize, double* inputBuffer, unsigned int filterSize, double* filter, bool useFFT) 
 : Effect{bufferSize, inputBuffer}, useFFT{useFFT} { 
   convbuf = new ConvolveBuf(bufferSize, filterSize);
-  overlapBuffer = new double(convbuf->N);
+  overlapBuffer = new double[convbuf->N];
 }
 
 void ConvolveEffect::processBuffer() {
