@@ -47,9 +47,6 @@ typedef double MY_TYPE;
 class CallbackData {
   public:
   unsigned int fs;
-  MY_TYPE* buffer;
-  ConvolveBuf* convbuf;
-  MY_TYPE* bigbuf;
   std::vector<Effect*> *fx_chain;
 };
 
@@ -196,25 +193,10 @@ int main( int argc, char *argv[] )
   for (int i = 0 ; i < 128 ; i++)
     printf ("%lf ", filter[i]);
 
-  data.convbuf = new ConvolveBuf(bufferFrames, filterSize);
-  data.convbuf->h = filter;
-  data.convbuf->h_len = filterSize;
-  data.convbuf->x_len = bufferFrames;
-  std::cout << "\n\n" << data.convbuf->h_len << "\t" << data.convbuf->x_len << "\t" << get_nextpow2(filterSize+bufferFrames-1) << "\n\n";
-
-  data.buffer = (MY_TYPE*) calloc(get_nextpow2(filterSize+bufferFrames-1), sizeof(MY_TYPE));
-
-  
-  if (!data.buffer || !data.convbuf) {
-    std::cout << "Erreur d'allocation" << std::endl;
-    exit(1);
-  }
-
   std::vector<Effect*> fxChain;
   data.fx_chain = &fxChain;
   ConvolveEffect reverb = ConvolveEffect(bufferFrames, NULL, filterSize, filter);
   fxChain.push_back(&reverb);
-
 
   try {
     adac.startStream();
@@ -233,8 +215,6 @@ int main( int argc, char *argv[] )
 
  cleanup:
   if ( adac.isStreamOpen() ) adac.closeStream();
-  free(data.buffer);
-  delete data.convbuf;
 
   return 0;
 }
