@@ -70,6 +70,19 @@ void ConvolveEffect::processBuffer() {
   memcpy(convbuf->x, in, bufferSize*sizeof(double));
   if (useFFT) convolve_fft(convbuf);
   else convolve(convbuf);
+
+  // on a les résidus précédents et la convolution du bloc actuel, plus qu'à sommer dans le overlapBuffer :
+  for (unsigned int i = 0 ; i < convbuf->x_len + convbuf->h_len - 1; i++) {
+    overlapBuffer[i] = overlapBuffer[i] + convbuf->output[i];
+  }
+  memcpy(out, overlapBuffer, bufferSize*sizeof(double));
+
+  // maintenant on shift le overlapBuffer en avance pour le prochain bloc
+  // memmove(overlapBuffer, overlapBuffer + (nBufferFrames, data_p->convbuf->hSize -1); // mauvaise idée car alloue un tableau temporaire pour move de façon safe
+  for (unsigned int i = 0 ; i < convbuf->h_len -1 ; i++) {
+    overlapBuffer[i] = overlapBuffer[bufferSize + i];
+  }
+  memset(overlapBuffer + convbuf->h_len - 1, 0, bufferSize*sizeof(double));
 }
 
 
