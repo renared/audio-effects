@@ -19,18 +19,26 @@ void ComplexSignal::set_zero() {
   memset(imag, 0, length*sizeof(double));
 }
 
-ConvolveBuf::ConvolveBuf(unsigned int _x_len, unsigned int _h_len) {
+ConvolveBuf::ConvolveBuf(unsigned int _x_len, unsigned int _h_len, double* x, double* h) {
   x_len = _x_len;
   h_len = _h_len;
   N = get_nextpow2(x_len + h_len - 1);
-  std::cout << "##### " << x_len << " " << h_len << " " << N << " #####" << std::endl;
+  //std::cout << "##### " << x_len << " " << h_len << " " << N << " #####" << std::endl;
   fft1 = new ComplexSignal(N);
   fft2 = new ComplexSignal(N);
   fft3 = new ComplexSignal(N);
+  output = new double[N];
+  x = x;
+  h = h;
+}
+
+ConvolveBuf::ConvolveBuf(unsigned int _x_len, unsigned int _h_len) {
+  ConvolveBuf(_x_len, _h_len);
   x = new double[x_len];
   h = new double[h_len];
-  output = new double[N];
 }
+
+
 
 ConvolveBuf::~ConvolveBuf()
 {
@@ -42,13 +50,36 @@ ConvolveBuf::~ConvolveBuf()
     delete output;
 }
 
+Effect::Effect(unsigned int bufferSize, double* inputBuffer) {
+  bufferSize = bufferSize;
+  in = inputBuffer;
+  out = new double[bufferSize];
+}
+
+void Effect::processBuffer() {
+  memcpy(out, in, bufferSize*sizeof(double));
+}
+
+ConvolveEffect::ConvolveEffect(unsigned int bufferSize, double* inputBuffer, unsigned int filterSize, double* filter, bool useFFT) 
+: Effect{bufferSize, inputBuffer}, useFFT{useFFT} { 
+  convbuf = new ConvolveBuf(bufferSize, filterSize);
+  overlapBuffer = new double(convbuf->N);
+}
+
+void ConvolveEffect::processBuffer() {
+  memcpy(convbuf->x, in, bufferSize*sizeof(double));
+  if (useFFT) convolve_fft(convbuf);
+  else convolve(convbuf);
+}
+
+
 void convolve(ConvolveBuf *convbuf) {
   // convolue dans le tableau output le tableau convbuf->x de taille convbuf->x_len avec le tableau convbuf->h de taille convbuf->h_len
   // output de taille convbuf->x_len + convbuf->h_len - 1
   for (unsigned int i = 0 ; i < convbuf->x_len + convbuf->h_len - 1 ; i++) {
     convbuf->output[i] = 0;
     unsigned int const jmn = (i >= convbuf->x_len - 1)? i - (convbuf->x_len - 1) : 0;
-    unsigned int const jmx = (i <  convbuf->h_len - 1)? i            : convbuf->h_len - 1;
+    unsigned int const jmx = (i <  convbuf->h_len - 1)? i : convbuf->h_len - 1;
     for (unsigned int j = jmn ; j <= jmx ; ++j) {
       if (i-j < convbuf->x_len)
         convbuf->output[i] += (double)(convbuf->x[i-j] * convbuf->h[j]);

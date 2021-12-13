@@ -16,7 +16,7 @@
 #include "somefunc.h"
 #include "processing.h"
 
-#define USE_FFT 0
+#define USE_FFT 1
 
 /*
 typedef char MY_TYPE;
@@ -48,6 +48,7 @@ class CallbackData {
   unsigned int fs;
   MY_TYPE* buffer;
   ConvolveBuf* convbuf;
+  MY_TYPE* bigbuf;
 };
 
 void usage( void ) {
@@ -76,7 +77,7 @@ int inout( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
 
   size_t bytes = nBufferFrames * sizeof(double);
 
-  MY_TYPE* workBuffer = ((CallbackData*)data)->buffer; // workBuffer contient les résidus des convolutions précédentes, à compter du même début que inputBuffer
+  MY_TYPE* overlapBuffer = ((CallbackData*)data)->buffer; // overlapBuffer contient les résidus des convolutions précédentes, à compter du même début que inputBuffer
   
   /* Calcul convolution */
   
@@ -89,18 +90,18 @@ int inout( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
     convolve(data_p->convbuf);
   }
 
-  // on a les résidus précédents et la convolution du bloc actuel, plus qu'à sommer dans le workBuffer :
+  // on a les résidus précédents et la convolution du bloc actuel, plus qu'à sommer dans le overlapBuffer :
   for (unsigned int i = 0 ; i < nBufferFrames + data_p->convbuf->h_len - 1; i++) {
-    *(workBuffer+i) = workBuffer[i] + data_p->convbuf->output[i];
+    *(overlapBuffer+i) = overlapBuffer[i] + data_p->convbuf->output[i];
   }
-  memcpy(outputBuffer, workBuffer, bytes);
+  memcpy(outputBuffer, overlapBuffer, bytes);
   
-  // maintenant on shift le workBuffer en avance pour le prochain bloc
-  // memmove(workBuffer, workBuffer + (nBufferFrames, data_p->convbuf->hSize -1); // mauvaise idée car alloue un tableau temporaire pour move de façon safe
+  // maintenant on shift le overlapBuffer en avance pour le prochain bloc
+  // memmove(overlapBuffer, overlapBuffer + (nBufferFrames, data_p->convbuf->hSize -1); // mauvaise idée car alloue un tableau temporaire pour move de façon safe
   for (unsigned int i = 0 ; i < data_p->convbuf->h_len -1 ; i++) {
-    workBuffer[i] = workBuffer[nBufferFrames + i];
+    overlapBuffer[i] = overlapBuffer[nBufferFrames + i];
   }
-  memset(workBuffer + data_p->convbuf->h_len - 1, 0, bytes);
+  memset(overlapBuffer + data_p->convbuf->h_len - 1, 0, bytes);
   
   toc = get_process_time();
   std::cout << "Time elapsed: " << toc-tic << "\tBlock duration: " << (double)nBufferFrames / data_p->fs << std::endl;
@@ -143,7 +144,7 @@ int main( int argc, char *argv[] )
   adac.showWarnings( true );
 
   // Set the same number of channels for both input and output.
-  unsigned int bufferFrames = 512;
+  unsigned int bufferFrames = 3072;
   RtAudio::StreamParameters iParams, oParams;
   iParams.deviceId = iDevice;
   iParams.nChannels = channels;
