@@ -58,6 +58,14 @@ void Effect::processBuffer() {
   memcpy(out, in, bufferSize*sizeof(double));
 }
 
+void Effect::setInput(double* input) {
+  this->in = input;
+}
+
+void Effect::copyOutput(double* dest) {
+  memcpy(dest, this->out, sizeof(double)*this->bufferSize);
+}
+
 ConvolveEffect::ConvolveEffect(unsigned int bufferSize, double* inputBuffer, unsigned int filterSize, double* filter, bool useFFT) 
 : Effect(bufferSize, inputBuffer){ 
   this->useFFT = useFFT;
@@ -87,6 +95,33 @@ void ConvolveEffect::processBuffer() {
   memset(overlapBuffer + convbuf->filterSize - 1, 0, bufferSize*sizeof(double));
 }
 
+FxChain::FxChain(unsigned int bufferSize, double* inputBuffer)
+: Effect(bufferSize, inputBuffer) {
+  this->bufferSize = bufferSize;
+  this->in = inputBuffer;
+  this->out = NULL;
+}
+
+void FxChain::push_back(Effect* fx) {
+  this->fxVector.push_back(fx);
+  this->fxVector.front()->in = this->in;
+  this->connectChain();
+}
+
+void FxChain::connectChain() {
+  this->fxVector.front()->in = this->in;
+  for (int i = 1 ; i < this->fxVector.size() ; i++) {
+    this->fxVector[i]->in = this->fxVector[i-1]->out;
+  }
+  this->out = this->fxVector.back()->out;
+}
+
+void FxChain::processBuffer() {
+  this->connectChain();
+  for (Effect* fx : this->fxVector) {
+    fx->processBuffer();
+  }
+}
 
 void convolve(ConvolveBuf *convbuf) {
   // convolue dans le tableau output le tableau convbuf->x de taille convbuf->inputSize avec le tableau convbuf->h de taille convbuf->filterSize

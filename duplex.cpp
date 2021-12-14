@@ -47,7 +47,7 @@ typedef double MY_TYPE;
 class CallbackData {
   public:
   unsigned int fs;
-  std::vector<Effect*> *fx_chain;
+  FxChain* fxChain;
 };
 
 void usage( void ) {
@@ -78,9 +78,9 @@ int inout( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
 
   //for (int i = 0 ; i < nBufferFrames ; i++) std::cout << ((double*)inputBuffer)[i] << std::endl;
   
-  data_p->fx_chain->front()->in = (double*)inputBuffer;
-  data_p->fx_chain->front()->processBuffer();
-  memcpy(outputBuffer, data_p->fx_chain->back()->out, bytes);
+  data_p->fxChain->setInput((double*)inputBuffer);
+  data_p->fxChain->processBuffer();
+  data_p->fxChain->copyOutput((double*)outputBuffer);
   
   toc = get_process_time();
   std::cout << "Time elapsed: " << toc-tic << "\tBlock duration: " << (double)nBufferFrames / data_p->fs << std::endl;
@@ -195,10 +195,10 @@ int main( int argc, char *argv[] )
   for (int i = 0 ; i < 128 ; i++)
     printf ("%lf ", filter[i]);
 
-  std::vector<Effect*> fxChain;
-  data.fx_chain = &fxChain;
+  FxChain fxChain(bufferFrames);
   ConvolveEffect reverb = ConvolveEffect(bufferFrames, NULL, filterSize, filter);
   fxChain.push_back(&reverb);
+  data.fxChain = &fxChain;
 
   try {
     adac.startStream();

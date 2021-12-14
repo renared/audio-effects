@@ -1,6 +1,8 @@
 #ifndef PROCESSING_H
 #define PROCESSING_H
 
+#include <vector>
+
 class ComplexSignal {
   public:
   ComplexSignal(unsigned int _length);
@@ -26,11 +28,13 @@ class ConvolveBuf {
 
 class Effect {
   public:
-  Effect(unsigned int bufferSize, double* inputBuffer);
+  Effect(unsigned int bufferSize, double* inputBuffer = NULL);
   unsigned int bufferSize;
   double *in;
   double *out;
   virtual void processBuffer();
+  void setInput(double* input);
+  void copyOutput(double* dest);
 };
 
 class ConvolveEffect : public Effect {
@@ -40,6 +44,15 @@ class ConvolveEffect : public Effect {
   ConvolveBuf* convbuf;
   bool useFFT;
   void processBuffer();
+};
+
+class FxChain : public Effect {
+  public:
+  FxChain(unsigned int bufferSize, double* inputBuffer = NULL);
+  std::vector<Effect*> fxVector;
+  void push_back(Effect* fx);
+  void processBuffer();
+  void connectChain();
 };
 
 
