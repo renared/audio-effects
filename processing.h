@@ -37,15 +37,6 @@ class Effect {
   void copyOutput(double* dest);
 };
 
-class ConvolveEffect : public Effect {
-  public:
-  ConvolveEffect(unsigned int bufferSize, double* inputBuffer, unsigned int filterSize, double* filter, bool useFFT = true);
-  double* overlapBuffer;
-  ConvolveBuf* convbuf;
-  bool useFFT;
-  void processBuffer();
-};
-
 class FxChain : public Effect {
   public:
   FxChain(unsigned int bufferSize, double* inputBuffer = NULL);
@@ -55,6 +46,23 @@ class FxChain : public Effect {
   void connectChain();
 };
 
+class ConvolveEffect : public Effect {
+  public:
+  ConvolveEffect(unsigned int bufferSize, double* inputBuffer, unsigned int filterSize, double* filter, bool useFFT = true);
+  double* overlapBuffer;
+  ConvolveBuf* convbuf;
+  bool useFFT;
+  void processBuffer();
+};
+
+class WahEffect : public Effect {
+  public:
+  WahEffect(unsigned int bufferSize);
+  unsigned int _i = 0;
+  double _x1 = 0, _x2 = 0, _y1 = 0, _y2 = 0;
+  double fn, s, wn, K, a0, a1, a2, b0, b1, b2;
+  void processBuffer();
+};
 
 void convolve(ConvolveBuf *convbuf);
 void convolve_fft(ConvolveBuf *convbuf);

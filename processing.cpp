@@ -2,6 +2,7 @@
 #include <iostream>
 #include "somefunc.h"
 #include "processing.h"
+#include <cmath>
 
 ComplexSignal::ComplexSignal(unsigned int _length) {
   length = _length;
@@ -121,6 +122,39 @@ void FxChain::processBuffer() {
   for (Effect* fx : this->fxVector) {
     fx->processBuffer();
   }
+}
+
+WahEffect::WahEffect(unsigned int bufferSize) : Effect(bufferSize) {}
+
+void WahEffect::processBuffer() {
+  for (int i = 0; i < bufferSize ; i++) {
+    fn = 500.0/22050.0 + 300.0/22050.0*sin(2*M_PI*(i+_i)/44100.0); 
+
+    s = 0.01;
+    wn = 2*M_PI*fn;
+    K = 0.5;
+    a0 = 1 + (1/wn)*(2*s + 1/wn);
+    a1 = - 2 / pow(wn, 2);
+    a2 = (1/wn)*(1/wn - 2*s) ;
+    b0 = K;
+    b1 = 2*K;
+    b2 = K;
+
+    if (i == 0) {
+      out[i] = ( -a1*_y1 - a2*_y2 + b0*in[i] + b1*_x1 + b2*_x2 ) / a0 ;
+    }
+    else if (i == 1) {
+      out[i] = ( -a1*out[i-1] - a2*_y1 + b0*in[i] + b1*in[i-1] + b2*_x1 ) / a0 ;
+    }
+    else {
+      out[i] = ( -a1*out[i-1] - a2*out[i-2] + b0*in[i] + b1*in[i-1] + b2*in[i-2] ) / a0 ;
+    }
+  }
+  _x1 = in[bufferSize-1];
+  _x2 = in[bufferSize-2];
+  _y1 = out[bufferSize-1];
+  _y2 = out[bufferSize-2];
+  _i += bufferSize;
 }
 
 void convolve(ConvolveBuf *convbuf) {

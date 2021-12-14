@@ -123,7 +123,7 @@ int main( int argc, char *argv[] )
   adac.showWarnings( true );
 
   // Set the same number of channels for both input and output.
-  unsigned int bufferFrames = 1500;
+  unsigned int bufferFrames = 4096;
   RtAudio::StreamParameters iParams, oParams;
   iParams.deviceId = iDevice;
   iParams.nChannels = channels;
@@ -196,7 +196,9 @@ int main( int argc, char *argv[] )
     printf ("%lf ", filter[i]);
 
   FxChain fxChain(bufferFrames);
-  ConvolveEffect reverb = ConvolveEffect(bufferFrames, NULL, filterSize, filter);
+  WahEffect wah(bufferFrames);
+  ConvolveEffect reverb(bufferFrames, NULL, filterSize, filter);
+  fxChain.push_back(&wah);
   fxChain.push_back(&reverb);
   data.fxChain = &fxChain;
 
