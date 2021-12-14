@@ -76,9 +76,11 @@ int inout( void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
 
   size_t bytes = nBufferFrames * sizeof(double);
 
+  //for (int i = 0 ; i < nBufferFrames ; i++) std::cout << ((double*)inputBuffer)[i] << std::endl;
+  
   data_p->fx_chain->front()->in = (double*)inputBuffer;
   data_p->fx_chain->front()->processBuffer();
-  memcpy(outputBuffer, data_p->fx_chain->front()->out, bytes);
+  memcpy(outputBuffer, data_p->fx_chain->back()->out, bytes);
   
   toc = get_process_time();
   std::cout << "Time elapsed: " << toc-tic << "\tBlock duration: " << (double)nBufferFrames / data_p->fs << std::endl;

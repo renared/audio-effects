@@ -1,4 +1,4 @@
-CC=g++
+CC=clang++
 RTAUDIO_DIR = ./rtaudio-5.2.0
 CFLAGS= -c -Wall -g -I$(RTAUDIO_DIR)
 LIBS = -lpthread -ljack -lpulse-simple -lasound  -lpulse
